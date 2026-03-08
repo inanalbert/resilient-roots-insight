@@ -53,13 +53,44 @@ function buildTooltipHtml(title: string, location: string, description: string, 
   </div>`;
 }
 
-function normalizeCoordinates(coordinates: [number, number]): [number, number] | null {
-  const [first, second] = coordinates;
-  const isAsIsValid = Number.isFinite(first) && Number.isFinite(second) && Math.abs(first) <= 180 && Math.abs(second) <= 90;
-  const isSwappedValid = Number.isFinite(first) && Number.isFinite(second) && Math.abs(second) <= 180 && Math.abs(first) <= 90;
+type CoordinateOrder = "lnglat" | "latlng";
 
-  if (isAsIsValid) return [first, second];
-  if (isSwappedValid) return [second, first];
+function inferPreferredCoordinateOrder(list: Array<[number, number]>): CoordinateOrder {
+  // Strong signals (not ambiguous):
+  // - If the first value is > 90, it's much more likely to be longitude (lng,lat)
+  // - If the second value is > 90, it's much more likely to be longitude (lat,lng)
+  let lngLatVotes = 0;
+  let latLngVotes = 0;
+
+  for (const [a, b] of list) {
+    if (!Number.isFinite(a) || !Number.isFinite(b)) continue;
+
+    const aLooksLikeLngOnly = Math.abs(a) > 90 && Math.abs(a) <= 180 && Math.abs(b) <= 90;
+    const bLooksLikeLngOnly = Math.abs(b) > 90 && Math.abs(b) <= 180 && Math.abs(a) <= 90;
+
+    if (aLooksLikeLngOnly) lngLatVotes += 1;
+    if (bLooksLikeLngOnly) latLngVotes += 1;
+  }
+
+  return latLngVotes > lngLatVotes ? "latlng" : "lnglat";
+}
+
+function normalizeCoordinates(
+  coordinates: [number, number],
+  preferredOrder: CoordinateOrder,
+): [number, number] | null {
+  const [a, b] = coordinates;
+  if (!Number.isFinite(a) || !Number.isFinite(b)) return null;
+
+  const lngLatValid = Math.abs(a) <= 180 && Math.abs(b) <= 90;
+  const latLngValid = Math.abs(b) <= 180 && Math.abs(a) <= 90;
+
+  if (lngLatValid && !latLngValid) return [a, b];
+  if (latLngValid && !lngLatValid) return [b, a];
+
+  // Ambiguous (both numbers within [-90, 90]): follow dataset-level preference.
+  if (lngLatValid && latLngValid) return preferredOrder === "lnglat" ? [a, b] : [b, a];
+
   return null;
 }
 
