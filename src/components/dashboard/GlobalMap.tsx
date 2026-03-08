@@ -275,16 +275,18 @@ const GlobalMap = ({ mode, activeDomains, activeMindset, activeCategories, selec
       });
     } else {
       const filtered = GENZ_SIGNALS.filter((s) => activeCategories.includes(s.category));
+      const preferredOrder = inferPreferredCoordinateOrder(filtered.map((s) => s.coordinates));
+
       const debugPreview = filtered.slice(0, 5).map((s) => ({
         title: s.title,
         location: s.location,
         raw: s.coordinates,
-        normalized: normalizeCoordinates(s.coordinates),
+        normalized: normalizeCoordinates(s.coordinates, preferredOrder),
       }));
-      console.log("[MapDebug] GenZ mode — first 5 marker coords:", debugPreview);
+      console.log("[MapDebug] GenZ mode — preferred order:", preferredOrder, "— first 5 marker coords:", debugPreview);
 
       filtered.forEach((signal) => {
-        const normalizedCoordinates = normalizeCoordinates(signal.coordinates);
+        const normalizedCoordinates = normalizeCoordinates(signal.coordinates, preferredOrder);
         if (!normalizedCoordinates) {
           console.warn("[MapDebug] Skipping invalid coordinates", {
             title: signal.title,
